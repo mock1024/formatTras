@@ -183,7 +183,6 @@ function removeSourceFile() {
     document.getElementById('sourceFile').value = '';
     document.getElementById('sourceFileInfo').classList.add('hidden');
     document.getElementById('sourceUpload').classList.remove('hidden');
-    document.getElementById('sourcePreview').classList.add('hidden');
     state.sourceData = null;
     state.sourceHeaders = [];
     updateConvertButton();
@@ -212,33 +211,11 @@ function parseFile(file) {
         state.sourceHeaders = jsonData[0];
         state.sourceData = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ''));
 
-        // Display preview
-        displayDataPreview();
         updateMappings();
         updateConvertButton();
     };
 
     reader.readAsArrayBuffer(file);
-}
-
-function displayDataPreview() {
-    const preview = document.getElementById('sourcePreview');
-    const table = document.getElementById('sourceTable');
-    const thead = table.querySelector('thead');
-    const tbody = table.querySelector('tbody');
-    const recordCount = preview.querySelector('.record-count');
-
-    // Build headers
-    thead.innerHTML = `<tr>${state.sourceHeaders.map(h => `<th>${h || ''}</th>`).join('')}</tr>`;
-
-    // Build preview data (max 5 rows)
-    const previewData = state.sourceData.slice(0, 5);
-    tbody.innerHTML = previewData.map(row =>
-        `<tr>${state.sourceHeaders.map((_, i) => `<td>${row[i] !== undefined ? row[i] : ''}</td>`).join('')}</tr>`
-    ).join('');
-
-    recordCount.textContent = `共 ${state.sourceData.length} 条记录`;
-    preview.classList.remove('hidden');
 }
 
 function showMappingSection() {
@@ -403,49 +380,16 @@ function convertData() {
 
 function displayResult() {
     const resultSection = document.getElementById('resultSection');
-    const resultTable = document.getElementById('resultTable');
-    const thead = resultTable.querySelector('thead');
-    const tbody = resultTable.querySelector('tbody');
 
     // Update stats
     document.getElementById('convertedCount').textContent = state.convertedData.length;
     document.getElementById('targetFieldCount').textContent = state.targetTemplate.length;
-
-    // Build table headers
-    thead.innerHTML = `<tr>${state.targetTemplate.map(h => `<th>${h}</th>`).join('')}</tr>`;
-
-    // Build table body (preview first 5 rows)
-    const previewData = state.convertedData.slice(0, 5);
-    tbody.innerHTML = previewData.map(row =>
-        `<tr>${state.targetTemplate.map(field => `<td>${row[field] || ''}</td>`).join('')}</tr>`
-    ).join('');
 
     // Show result section
     resultSection.classList.remove('hidden');
 
     // Scroll to result
     resultSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function toggleFullPreview() {
-    const tbody = document.querySelector('#resultTable tbody');
-    const btnText = document.getElementById('previewToggleText');
-
-    if (btnText.textContent === '查看更多') {
-        // Show all data (limit to 100 for performance)
-        const previewData = state.convertedData.slice(0, 100);
-        tbody.innerHTML = previewData.map(row =>
-            `<tr>${state.targetTemplate.map(field => `<td>${row[field] || ''}</td>`).join('')}</tr>`
-        ).join('');
-        btnText.textContent = '收起';
-    } else {
-        // Show first 5 rows
-        const previewData = state.convertedData.slice(0, 5);
-        tbody.innerHTML = previewData.map(row =>
-            `<tr>${state.targetTemplate.map(field => `<td>${row[field] || ''}</td>`).join('')}</tr>`
-        ).join('');
-        btnText.textContent = '查看更多';
-    }
 }
 
 function downloadExcel() {
@@ -528,7 +472,6 @@ function resetAll() {
     document.getElementById('sourceFile').value = '';
     document.getElementById('sourceFileInfo').classList.add('hidden');
     document.getElementById('sourceUpload').classList.remove('hidden');
-    document.getElementById('sourcePreview').classList.add('hidden');
     document.getElementById('templateInfo').classList.add('hidden');
     document.getElementById('mappingSection').classList.add('hidden');
     document.getElementById('resultSection').classList.add('hidden');
