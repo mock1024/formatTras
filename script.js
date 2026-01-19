@@ -1,9 +1,11 @@
 // Global state
 const state = {
+    sourceFile: null,
     sourceData: null,
     sourceHeaders: [],
+    sourceHeadersWithSample: [], // Store headers with sample data
     targetTemplate: [],
-    mappings: {},
+    mappings: {}, // Key: targetField, Value: sourceField
     convertedData: null
 };
 
@@ -146,19 +148,24 @@ function handleTargetSoftwareChange(e) {
     if (software && softwareTemplates[software]) {
         state.targetTemplate = softwareTemplates[software].fields;
         displayTemplateFields();
-        showMappingSection();
+        checkAndShowMapping();
     } else {
         document.getElementById('templateInfo').classList.add('hidden');
-        document.getElementById('mappingSection').classList.add('hidden');
+        document.getElementById('targetFieldsSection').classList.add('hidden');
+        checkAndShowMapping();
     }
 }
 
 function displayTemplateFields() {
     const container = document.getElementById('templateFields');
+    if (!container) return;
+
     container.innerHTML = state.targetTemplate.map(field =>
         `<span class="field-tag">${field}</span>`
     ).join('');
+
     document.getElementById('templateInfo').classList.remove('hidden');
+    document.getElementById('targetFieldCount').textContent = `${state.targetTemplate.length} 个字段`;
 }
 
 function handleFileSelect(e) {
@@ -192,9 +199,13 @@ function removeSourceFile() {
     document.getElementById('sourceFile').value = '';
     document.getElementById('sourceFileInfo').classList.add('hidden');
     document.getElementById('sourceUpload').classList.remove('hidden');
+    document.getElementById('sourceFieldsSection').classList.add('hidden');
     state.sourceData = null;
     state.sourceHeaders = [];
+    state.sourceHeadersWithSample = [];
+    state.sourceFile = null;
     updateConvertButton();
+    checkAndShowMapping();
 }
 
 function parseFile(file) {
@@ -218,43 +229,289 @@ function parseFile(file) {
 
         // Extract headers and data
         state.sourceHeaders = jsonData[0];
-        state.sourceData = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ''));
 
-        updateMappings();
-        updateConvertButton();
+        // Store headers with sample data from first 3 rows
+        state.sourceHeadersWithSample = state.sourceHeaders.map((header, index) => {
+            const samples = [];
+            for (let i = 1; i < Math.min(4, jsonData.length); i++) {
+                if (jsonData[i][index] !== undefined && jsonData[i][index] !== '') {
+                    samples.push(jsonData[i][index]);
+                    if (samples.length >= 3) break;
+                }
+            }
+            return {
+                name: header,
+                samples: samples,
+                index: index
+            };
+        });
+
+        state.sourceData = jsonData.slice(1).filter(row => row.some(cell => cell !== undefined && cell !== ''));
+        state.sourceFile = file;
+
+        // Display source fields
+        displaySourceFields();
+
+        // Check if we can show mapping section
+        checkAndShowMapping();
     };
 
     reader.readAsArrayBuffer(file);
 }
 
+function displaySourceFields() {
+    const container = document.getElementById('sourceFieldsDisplay');
+    if (!container) return;
+
+    container.innerHTML = state.sourceHeadersWithSample.map(field => `
+        <div class="field-item source-field-item" draggable="true" data-field="${field.name}">
+            <div class="field-header">
+                <svg class="drag-handle" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="9" cy="12" r="1"/>
+                    <circle cx="9" cy="5" r="1"/>
+                    <circle cx="9" cy="19" r="1"/>
+                    <circle cx="15" cy="12" r="1"/>
+                    <circle cx="15" cy="5" r="1"/>
+                    <circle cx="15" cy="19" r="1"/>
+                </svg>
+                <span class="field-name">${field.name}</span>
+            </div>
+            <div class="field-samples">
+                ${field.samples.slice(0, 2).map(s => `<span class="sample-value">${String(s).substring(0, 20)}${String(s).length > 20 ? '...' : ''}</span>`).join('')}
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('sourceFieldsSection').classList.remove('hidden');
+    document.getElementById('sourceFieldCount').textContent = `${state.sourceHeaders.length} 个字段`;
+
+    // Add drag event listeners
+    addDragEventListeners();
+}
+
+function displayTargetFields() {
+    const container = document.getElementById('targetFieldsDisplay');
+    if (!container) return;
+
+    container.innerHTML = state.targetTemplate.map(field => `
+        <div class="field-item target-field-item" data-field="${field}" data-mapped="">
+            <div class="field-header">
+                <svg class="drag-handle" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <circle cx="9" cy="12" r="1"/>
+                    <circle cx="9" cy="5" r="1"/>
+                    <circle cx="9" cy="19" r="1"/>
+                    <circle cx="15" cy="12" r="1"/>
+                    <circle cx="15" cy="5" r="1"/>
+                    <circle cx="15" cy="19" r="1"/>
+                </svg>
+                <span class="field-name">${field}</span>
+            </div>
+            <div class="mapped-source-field" id="mapped-${field.replace(/\s+/g, '-')}">
+                <span class="empty-hint">拖拽左侧字段到此处</span>
+            </div>
+        </div>
+    `).join('');
+
+    document.getElementById('targetFieldsSection').classList.remove('hidden');
+
+    // Add drag event listeners
+    addDragEventListeners();
+}
+
 function showMappingSection() {
-    if (state.sourceHeaders.length > 0 && state.targetTemplate.length > 0) {
+    // Check if both source and target are ready
+    checkAndShowMapping();
+}
+
+function checkAndShowMapping() {
+    const hasSource = state.sourceHeaders && state.sourceHeaders.length > 0;
+    const hasTarget = state.targetTemplate && state.targetTemplate.length > 0;
+
+    if (hasSource && hasTarget) {
         document.getElementById('mappingSection').classList.remove('hidden');
-        updateMappings();
+        displayTargetFields();
+        updateMappingList();
+    } else {
+        document.getElementById('mappingSection').classList.add('hidden');
+    }
+    updateConvertButton();
+}
+
+function addDragEventListeners() {
+    const sourceFields = document.querySelectorAll('.source-field-item');
+    const targetFields = document.querySelectorAll('.target-field-item');
+
+    sourceFields.forEach(field => {
+        field.addEventListener('dragstart', handleDragStart);
+        field.addEventListener('dragend', handleDragEnd);
+    });
+
+    targetFields.forEach(field => {
+        field.addEventListener('dragover', handleDragOver);
+        field.addEventListener('drop', handleDrop);
+        field.addEventListener('dragenter', handleDragEnter);
+        field.addEventListener('dragleave', handleDragLeave);
+    });
+}
+
+let draggedElement = null;
+
+function handleDragStart(e) {
+    draggedElement = e.target.closest('.field-item');
+    e.target.style.opacity = '0.4';
+    e.dataTransfer.effectAllowed = 'move';
+}
+
+function handleDragEnd(e) {
+    e.target.style.opacity = '1';
+    document.querySelectorAll('.target-field-item').forEach(item => {
+        item.classList.remove('drag-over');
+    });
+}
+
+function handleDragOver(e) {
+    if (e.preventDefault) {
+        e.preventDefault();
+    }
+    e.dataTransfer.dropEffect = 'move';
+    return false;
+}
+
+function handleDragEnter(e) {
+    const targetField = e.target.closest('.target-field-item');
+    if (targetField) {
+        targetField.classList.add('drag-over');
     }
 }
 
-function updateMappings() {
-    if (state.sourceHeaders.length === 0 || state.targetTemplate.length === 0) return;
+function handleDragLeave(e) {
+    const targetField = e.target.closest('.target-field-item');
+    if (targetField && !targetField.contains(e.relatedTarget)) {
+        targetField.classList.remove('drag-over');
+    }
+}
 
+function handleDrop(e) {
+    if (e.stopPropagation) {
+        e.stopPropagation();
+    }
+
+    const targetField = e.target.closest('.target-field-item');
+    if (draggedElement && targetField) {
+        const sourceFieldName = draggedElement.dataset.field;
+        const targetFieldName = targetField.dataset.field;
+
+        // Create mapping
+        createMapping(sourceFieldName, targetFieldName);
+
+        // Visual feedback
+        targetField.classList.remove('drag-over');
+
+        // Update mapped field display
+        updateMappedFieldDisplay(targetFieldName, sourceFieldName);
+    }
+
+    return false;
+}
+
+function createMapping(sourceField, targetField) {
+    // Remove any existing mapping for this target field
+    Object.keys(state.mappings).forEach(key => {
+        if (state.mappings[key] === sourceField) {
+            delete state.mappings[key];
+            // Clear old display
+            const oldTarget = document.querySelector(`.target-field-item[data-field="${key}"]`);
+            if (oldTarget) {
+                const mappedDiv = oldTarget.querySelector('.mapped-source-field');
+                mappedDiv.innerHTML = '<span class="empty-hint">拖拽左侧字段到此处</span>';
+                oldTarget.dataset.mapped = '';
+            }
+        }
+    });
+
+    // Create new mapping
+    state.mappings[targetField] = sourceField;
+
+    // Update mapping list
+    updateMappingList();
+    updateConvertButton();
+}
+
+function updateMappedFieldDisplay(targetField, sourceField) {
+    const targetElement = document.querySelector(`.target-field-item[data-field="${targetField}"]`);
+    if (targetElement) {
+        const mappedDiv = targetElement.querySelector('.mapped-source-field');
+        const sourceData = state.sourceHeadersWithSample.find(h => h.name === sourceField);
+
+        mappedDiv.innerHTML = `
+            <div class="mapped-field-info">
+                <svg class="mapped-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <polyline points="20 6 9 17 4 12"/>
+                </svg>
+                <span class="mapped-field-name">${sourceField}</span>
+                <button class="btn-remove-mapping" onclick="removeMapping('${targetField}')">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            ${sourceData && sourceData.samples.length > 0 ? `
+                <div class="mapped-field-samples">
+                    ${sourceData.samples.slice(0, 2).map(s => `<span>${String(s).substring(0, 15)}${String(s).length > 15 ? '...' : ''}</span>`).join('')}
+                </div>
+            ` : ''}
+        `;
+
+        targetElement.dataset.mapped = sourceField;
+        targetElement.classList.add('has-mapping');
+    }
+}
+
+function removeMapping(targetField) {
+    delete state.mappings[targetField];
+
+    const targetElement = document.querySelector(`.target-field-item[data-field="${targetField}"]`);
+    if (targetElement) {
+        const mappedDiv = targetElement.querySelector('.mapped-source-field');
+        mappedDiv.innerHTML = '<span class="empty-hint">拖拽左侧字段到此处</span>';
+        targetElement.dataset.mapped = '';
+        targetElement.classList.remove('has-mapping');
+    }
+
+    updateMappingList();
+    updateConvertButton();
+}
+
+function updateMappingList() {
     const container = document.getElementById('mappingList');
+    if (!container) return;
+
     container.innerHTML = '';
 
-    state.targetTemplate.forEach((targetField, index) => {
-        const item = document.createElement('div');
-        item.className = 'mapping-item';
+    // Get all mappings
+    const mappings = Object.entries(state.mappings);
 
-        const sourceOptions = state.sourceHeaders.map(header =>
-            `<option value="${header}">${header}</option>`
-        ).join('');
+    // Update mapping count
+    document.getElementById('mappingCount').textContent = mappings.length;
+
+    if (mappings.length === 0) {
+        container.innerHTML = '<div class="no-mappings">暂无字段映射，请从左侧拖拽字段到右侧</div>';
+        return;
+    }
+
+    mappings.forEach(([targetField, sourceField]) => {
+        const item = document.createElement('div');
+        item.className = 'mapping-item-list';
+
+        const sourceData = state.sourceHeadersWithSample.find(h => h.name === sourceField);
 
         item.innerHTML = `
-            <div class="mapping-field">
-                <label>目标字段: ${targetField}</label>
-                <select class="mapping-select" data-target="${targetField}" onchange="updateMapping('${targetField}', this.value)">
-                    <option value="">-- 选择源字段 --</option>
-                    ${sourceOptions}
-                </select>
+            <div class="mapping-source">
+                <span class="field-label">${sourceField}</span>
+                ${sourceData && sourceData.samples.length > 0 ? `
+                    <span class="field-sample">${String(sourceData.samples[0]).substring(0, 20)}</span>
+                ` : ''}
             </div>
             <div class="mapping-arrow">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
@@ -262,30 +519,33 @@ function updateMappings() {
                     <polyline points="12 5 19 12 12 19"/>
                 </svg>
             </div>
-            <div class="mapping-field">
-                <label>源字段</label>
-                <input type="text" readonly class="mapping-source" placeholder="未选择" id="source-${index}">
+            <div class="mapping-target">
+                <span class="field-label">${targetField}</span>
             </div>
+            <button class="btn-remove-mapping-small" onclick="removeMapping('${targetField}')" title="删除映射">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+            </button>
         `;
 
         container.appendChild(item);
     });
-
-    // Auto-map on first load
-    autoMapFields();
 }
 
 function updateMapping(targetField, sourceField) {
     if (sourceField) {
-        state.mappings[targetField] = sourceField;
+        createMapping(sourceField, targetField);
+        updateMappedFieldDisplay(targetField, sourceField);
     } else {
-        delete state.mappings[targetField];
+        removeMapping(targetField);
     }
-    updateConvertButton();
 }
 
 function autoMapFields() {
-    const selects = document.querySelectorAll('.mapping-select');
+    if (!state.sourceHeaders || state.sourceHeaders.length === 0) return;
+    if (!state.targetTemplate || state.targetTemplate.length === 0) return;
 
     // Build content-based patterns for barcode detection
     const barcodeContentScores = {};
@@ -311,12 +571,11 @@ function autoMapFields() {
         });
     }
 
-    selects.forEach(select => {
-        const targetField = select.dataset.target;
+    // Auto-map each target field
+    state.targetTemplate.forEach(targetField => {
         let bestMatch = null;
         let bestScore = 0;
 
-        // Check for direct match or alias match
         state.sourceHeaders.forEach(sourceHeader => {
             let score = 0;
             const sourceLower = sourceHeader.toLowerCase();
@@ -363,12 +622,8 @@ function autoMapFields() {
         });
 
         if (bestMatch && bestScore >= 60) {
-            select.value = bestMatch;
-            updateMapping(targetField, bestMatch);
-
-            // Update display
-            const index = Array.from(selects).indexOf(select);
-            document.getElementById(`source-${index}`).value = bestMatch;
+            createMapping(bestMatch, targetField);
+            updateMappedFieldDisplay(targetField, bestMatch);
         }
     });
 
@@ -376,12 +631,19 @@ function autoMapFields() {
 }
 
 function resetMappings() {
-    const selects = document.querySelectorAll('.mapping-select');
-    selects.forEach((select, index) => {
-        select.value = '';
-        document.getElementById(`source-${index}`).value = '';
-    });
     state.mappings = {};
+
+    // Clear all target field displays
+    document.querySelectorAll('.target-field-item').forEach(item => {
+        const mappedDiv = item.querySelector('.mapped-source-field');
+        if (mappedDiv) {
+            mappedDiv.innerHTML = '<span class="empty-hint">拖拽左侧字段到此处</span>';
+        }
+        item.dataset.mapped = '';
+        item.classList.remove('has-mapping');
+    });
+
+    updateMappingList();
     updateConvertButton();
 }
 
@@ -511,8 +773,10 @@ function downloadCSV() {
 
 function resetAll() {
     // Reset state
+    state.sourceFile = null;
     state.sourceData = null;
     state.sourceHeaders = [];
+    state.sourceHeadersWithSample = [];
     state.targetTemplate = [];
     state.mappings = {};
     state.convertedData = null;
@@ -524,6 +788,8 @@ function resetAll() {
     document.getElementById('sourceFileInfo').classList.add('hidden');
     document.getElementById('sourceUpload').classList.remove('hidden');
     document.getElementById('templateInfo').classList.add('hidden');
+    document.getElementById('sourceFieldsSection').classList.add('hidden');
+    document.getElementById('targetFieldsSection').classList.add('hidden');
     document.getElementById('mappingSection').classList.add('hidden');
     document.getElementById('resultSection').classList.add('hidden');
     document.getElementById('convertBtn').disabled = true;

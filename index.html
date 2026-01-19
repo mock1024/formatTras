@@ -155,7 +155,7 @@
                 </div>
                 <div>
                     <h2>字段映射配置</h2>
-                    <p>配置源字段与目标字段的对应关系</p>
+                    <p>拖拽左侧源字段到右侧目标字段进行映射</p>
                 </div>
             </div>
 
@@ -177,7 +177,38 @@
                         重置映射
                     </button>
                 </div>
-                <div class="mapping-list" id="mappingList"></div>
+
+                <div class="mapping-workspace">
+                    <!-- Source Fields Panel -->
+                    <div class="fields-panel source-panel hidden" id="sourceFieldsSection">
+                        <div class="panel-header">
+                            <h3>源字段</h3>
+                            <span class="field-count" id="sourceFieldCount">0 个字段</span>
+                        </div>
+                        <div class="fields-container" id="sourceFieldsDisplay">
+                            <!-- Source fields will be displayed here -->
+                        </div>
+                    </div>
+
+                    <!-- Target Fields Panel -->
+                    <div class="fields-panel target-panel hidden" id="targetFieldsSection">
+                        <div class="panel-header">
+                            <h3>目标字段</h3>
+                            <span class="field-count" id="targetFieldCount">0 个字段</span>
+                        </div>
+                        <div class="fields-container" id="targetFieldsDisplay">
+                            <!-- Target fields will be displayed here -->
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mapping List Summary -->
+                <div class="mapping-summary">
+                    <h4>当前映射 (<span id="mappingCount">0</span>)</h4>
+                    <div class="mapping-list" id="mappingList">
+                        <div class="no-mappings">暂无字段映射，请从左侧拖拽字段到右侧</div>
+                    </div>
+                </div>
             </div>
         </section>
 
