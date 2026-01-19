@@ -4,7 +4,9 @@ const state = {
     sourceData: null,
     sourceHeaders: [],
     sourceHeadersWithSample: [], // Store headers with sample data
+    targetFile: null,
     targetTemplate: [],
+    targetHeadersWithSample: [], // Store target headers with sample data
     mappings: {}, // Key: targetField, Value: sourceField
     convertedData: null,
     extractedData: null // For field extraction feature
@@ -104,79 +106,74 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeEventListeners() {
-    // Source software selection
-    document.getElementById('sourceSoftware').addEventListener('change', handleSourceSoftwareChange);
+    // Source file upload
+    const sourceUploadArea = document.getElementById('sourceUpload');
+    const sourceFileInput = document.getElementById('sourceFile');
 
-    // Target software selection
-    document.getElementById('targetSoftware').addEventListener('change', handleTargetSoftwareChange);
+    sourceUploadArea.addEventListener('click', () => sourceFileInput.click());
+    sourceFileInput.addEventListener('change', handleSourceFileSelect);
 
-    // File upload
-    const uploadArea = document.getElementById('sourceUpload');
-    const fileInput = document.getElementById('sourceFile');
-
-    uploadArea.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', handleFileSelect);
-
-    // Drag and drop
-    uploadArea.addEventListener('dragover', (e) => {
+    // Source drag and drop
+    sourceUploadArea.addEventListener('dragover', (e) => {
         e.preventDefault();
-        uploadArea.classList.add('dragover');
+        sourceUploadArea.classList.add('dragover');
     });
 
-    uploadArea.addEventListener('dragleave', () => {
-        uploadArea.classList.remove('dragover');
+    sourceUploadArea.addEventListener('dragleave', () => {
+        sourceUploadArea.classList.remove('dragover');
     });
 
-    uploadArea.addEventListener('drop', (e) => {
+    sourceUploadArea.addEventListener('drop', (e) => {
         e.preventDefault();
-        uploadArea.classList.remove('dragover');
+        sourceUploadArea.classList.remove('dragover');
         const files = e.dataTransfer.files;
         if (files.length) {
-            handleFile(files[0]);
+            handleSourceFile(files[0]);
+        }
+    });
+
+    // Target file upload
+    const targetUploadArea = document.getElementById('targetUpload');
+    const targetFileInput = document.getElementById('targetFile');
+
+    targetUploadArea.addEventListener('click', () => targetFileInput.click());
+    targetFileInput.addEventListener('change', handleTargetFileSelect);
+
+    // Target drag and drop
+    targetUploadArea.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        targetUploadArea.classList.add('dragover');
+    });
+
+    targetUploadArea.addEventListener('dragleave', () => {
+        targetUploadArea.classList.remove('dragover');
+    });
+
+    targetUploadArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        targetUploadArea.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length) {
+            handleTargetFile(files[0]);
         }
     });
 }
 
-function handleSourceSoftwareChange(e) {
-    const software = e.target.value;
-    // Can pre-fill based on software selection if needed
-    console.log('Source software selected:', software);
-}
-
-function handleTargetSoftwareChange(e) {
-    const software = e.target.value;
-
-    if (software && softwareTemplates[software]) {
-        state.targetTemplate = softwareTemplates[software].fields;
-        displayTemplateFields();
-        checkAndShowMapping();
-    } else {
-        document.getElementById('templateInfo').classList.add('hidden');
-        document.getElementById('targetFieldsSection').classList.add('hidden');
-        checkAndShowMapping();
-    }
-}
-
-function displayTemplateFields() {
-    const container = document.getElementById('templateFields');
-    if (!container) return;
-
-    container.innerHTML = state.targetTemplate.map(field =>
-        `<span class="field-tag">${field}</span>`
-    ).join('');
-
-    document.getElementById('templateInfo').classList.remove('hidden');
-    document.getElementById('targetFieldCount').textContent = `${state.targetTemplate.length} 个字段`;
-}
-
-function handleFileSelect(e) {
+function handleSourceFileSelect(e) {
     const file = e.target.files[0];
     if (file) {
-        handleFile(file);
+        handleSourceFile(file);
     }
 }
 
-function handleFile(file) {
+function handleTargetFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) {
+        handleTargetFile(file);
+    }
+}
+
+function handleSourceFile(file) {
     // Validate file type
     const validTypes = ['.xlsx', '.xls', '.csv'];
     const fileExt = '.' + file.name.split('.').pop().toLowerCase();
@@ -193,7 +190,27 @@ function handleFile(file) {
     document.getElementById('sourceUpload').classList.add('hidden');
 
     // Parse file
-    parseFile(file);
+    parseSourceFile(file);
+}
+
+function handleTargetFile(file) {
+    // Validate file type
+    const validTypes = ['.xlsx', '.xls', '.csv'];
+    const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+
+    if (!validTypes.includes(fileExt)) {
+        alert('请上传有效的文件格式 (.xlsx, .xls, .csv)');
+        return;
+    }
+
+    // Show file info
+    const fileInfo = document.getElementById('targetFileInfo');
+    fileInfo.querySelector('.file-name').textContent = file.name;
+    fileInfo.classList.remove('hidden');
+    document.getElementById('targetUpload').classList.add('hidden');
+
+    // Parse file
+    parseTargetFile(file);
 }
 
 function removeSourceFile() {
@@ -209,7 +226,19 @@ function removeSourceFile() {
     checkAndShowMapping();
 }
 
-function parseFile(file) {
+function removeTargetFile() {
+    document.getElementById('targetFile').value = '';
+    document.getElementById('targetFileInfo').classList.add('hidden');
+    document.getElementById('targetUpload').classList.remove('hidden');
+    document.getElementById('targetFieldsSection').classList.add('hidden');
+    state.targetTemplate = [];
+    state.targetHeadersWithSample = [];
+    state.targetFile = null;
+    updateConvertButton();
+    checkAndShowMapping();
+}
+
+function parseSourceFile(file) {
     const reader = new FileReader();
 
     reader.onload = function(e) {
@@ -252,6 +281,56 @@ function parseFile(file) {
 
         // Display source fields
         displaySourceFields();
+
+        // Check if we can show mapping section
+        checkAndShowMapping();
+    };
+
+    reader.readAsArrayBuffer(file);
+}
+
+function parseTargetFile(file) {
+    const reader = new FileReader();
+
+    reader.onload = function(e) {
+        const data = new Uint8Array(e.target.result);
+        const workbook = XLSX.read(data, { type: 'array' });
+
+        // Get first sheet
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+
+        // Convert to JSON
+        const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+
+        if (jsonData.length < 1) {
+            alert('文件数据为空或格式不正确');
+            return;
+        }
+
+        // Extract headers (first row)
+        state.targetTemplate = jsonData[0];
+
+        // Store headers with sample data from next 3 rows
+        state.targetHeadersWithSample = state.targetTemplate.map((header, index) => {
+            const samples = [];
+            for (let i = 1; i < Math.min(4, jsonData.length); i++) {
+                if (jsonData[i][index] !== undefined && jsonData[i][index] !== '') {
+                    samples.push(jsonData[i][index]);
+                    if (samples.length >= 3) break;
+                }
+            }
+            return {
+                name: header,
+                samples: samples,
+                index: index
+            };
+        });
+
+        state.targetFile = file;
+
+        // Display target fields
+        displayTargetFields();
 
         // Check if we can show mapping section
         checkAndShowMapping();
@@ -314,6 +393,7 @@ function displayTargetFields() {
     `).join('');
 
     document.getElementById('targetFieldsSection').classList.remove('hidden');
+    document.getElementById('targetFieldCount').textContent = `${state.targetTemplate.length} 个字段`;
 
     // Add drag event listeners
     addDragEventListeners();
@@ -652,7 +732,7 @@ function updateConvertButton() {
     const btn = document.getElementById('convertBtn');
     const hasSourceData = state.sourceData && state.sourceData.length > 0;
     const hasMappings = Object.keys(state.mappings).length > 0;
-    const hasTarget = document.getElementById('targetSoftware').value !== '';
+    const hasTarget = state.targetTemplate && state.targetTemplate.length > 0;
 
     btn.disabled = !(hasSourceData && hasMappings && hasTarget);
 }
@@ -712,8 +792,8 @@ function downloadExcel() {
         return;
     }
 
-    const targetSoftware = document.getElementById('targetSoftware');
-    const softwareName = softwareTemplates[targetSoftware.value]?.name || '导出';
+    // Get target filename without extension
+    const targetFileName = state.targetFile ? state.targetFile.name.replace(/\.[^/.]+$/, '') : '导出';
 
     // Create worksheet
     const ws = XLSX.utils.json_to_sheet(state.convertedData);
@@ -728,7 +808,7 @@ function downloadExcel() {
 
     // Generate filename with timestamp
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_');
-    const filename = `${softwareName}_商品资料_${timestamp}.xlsx`;
+    const filename = `${targetFileName}_转换结果_${timestamp}.xlsx`;
 
     // Download
     XLSX.writeFile(wb, filename);
@@ -740,8 +820,8 @@ function downloadCSV() {
         return;
     }
 
-    const targetSoftware = document.getElementById('targetSoftware');
-    const softwareName = softwareTemplates[targetSoftware.value]?.name || '导出';
+    // Get target filename without extension
+    const targetFileName = state.targetFile ? state.targetFile.name.replace(/\.[^/.]+$/, '') : '导出';
 
     // Build CSV content with BOM for Excel Chinese support
     let csvContent = '\uFEFF'; // BOM
@@ -767,7 +847,7 @@ function downloadCSV() {
     const link = document.createElement('a');
     const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_');
     link.href = URL.createObjectURL(blob);
-    link.download = `${softwareName}_商品资料_${timestamp}.csv`;
+    link.download = `${targetFileName}_转换结果_${timestamp}.csv`;
     link.click();
     URL.revokeObjectURL(link.href);
 }
@@ -778,18 +858,20 @@ function resetAll() {
     state.sourceData = null;
     state.sourceHeaders = [];
     state.sourceHeadersWithSample = [];
+    state.targetFile = null;
     state.targetTemplate = [];
+    state.targetHeadersWithSample = [];
     state.mappings = {};
     state.convertedData = null;
     state.extractedData = null;
 
     // Reset UI
-    document.getElementById('sourceSoftware').value = '';
-    document.getElementById('targetSoftware').value = '';
     document.getElementById('sourceFile').value = '';
+    document.getElementById('targetFile').value = '';
     document.getElementById('sourceFileInfo').classList.add('hidden');
     document.getElementById('sourceUpload').classList.remove('hidden');
-    document.getElementById('templateInfo').classList.add('hidden');
+    document.getElementById('targetFileInfo').classList.add('hidden');
+    document.getElementById('targetUpload').classList.remove('hidden');
     document.getElementById('sourceFieldsSection').classList.add('hidden');
     document.getElementById('targetFieldsSection').classList.add('hidden');
     document.getElementById('mappingSection').classList.add('hidden');

@@ -34,26 +34,12 @@
                         </svg>
                     </div>
                     <div>
-                        <h2>来源软件</h2>
-                        <p>选择并上传源数据文件</p>
+                        <h2>源数据文件</h2>
+                        <p>上传源数据文件</p>
                     </div>
                 </div>
 
                 <div class="card">
-                    <div class="form-group">
-                        <label>选择源软件</label>
-                        <select id="sourceSoftware" class="software-select">
-                            <option value="">请选择...</option>
-                            <option value="kemai">科脉云帆</option>
-                            <option value="jushang">聚商荟</option>
-                            <option value="sixun">思迅天店</option>
-                            <option value="yinbao">银豹</option>
-                            <option value="fuzhanggui">富掌柜</option>
-                            <option value="higuanjia">惠管家</option>
-                            <option value="mingxian">明献零售</option>
-                        </select>
-                    </div>
-
                     <div class="form-group">
                         <label>上传数据文件</label>
                         <div class="upload-area" id="sourceUpload">
@@ -116,35 +102,41 @@
                         </svg>
                     </div>
                     <div>
-                        <h2>目标软件</h2>
-                        <p>选择目标软件模板</p>
+                        <h2>目标数据文件</h2>
+                        <p>上传目标数据文件作为模板</p>
                     </div>
                 </div>
 
                 <div class="card">
                     <div class="form-group">
-                        <label>选择目标软件</label>
-                        <select id="targetSoftware" class="software-select">
-                            <option value="">请选择...</option>
-                            <option value="kemai">科脉云帆</option>
-                            <option value="jushang">聚商荟</option>
-                            <option value="sixun">思迅天店</option>
-                            <option value="yinbao">银豹</option>
-                            <option value="fuzhanggui">富掌柜</option>
-                            <option value="higuanjia">惠管家</option>
-                            <option value="mingxian">明献零售</option>
-                        </select>
+                        <label>上传目标模板文件</label>
+                        <div class="upload-area" id="targetUpload">
+                            <input type="file" id="targetFile" accept=".xlsx,.xls,.csv" hidden>
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <p class="upload-text">点击或拖拽文件到此处</p>
+                            <p class="upload-hint">支持 .xlsx, .xls, .csv 格式</p>
+                        </div>
                     </div>
 
-                    <div class="template-info hidden" id="templateInfo">
-                        <div class="template-header">
+                    <div class="file-info hidden" id="targetFileInfo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                        <span class="file-name"></span>
+                        <button class="btn-icon btn-remove" onclick="removeTargetFile()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                                <polyline points="14 2 14 8 20 8"/>
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
                             </svg>
-                            <span>目标模板字段</span>
-                        </div>
-                        <div class="template-fields" id="templateFields"></div>
+                        </button>
                     </div>
                 </div>
             </section>
