@@ -77,6 +77,13 @@
                             <polyline points="10 9 9 9 8 9"/>
                         </svg>
                         <span class="file-name"></span>
+                        <button class="btn-icon btn-action" onclick="openFieldExtractor()" title="提取字段">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="7 10 12 15 17 10"/>
+                                <line x1="12" y1="15" x2="12" y2="3"/>
+                            </svg>
+                        </button>
                         <button class="btn-icon btn-remove" onclick="removeSourceFile()">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
                                 <line x1="18" y1="6" x2="6" y2="18"/>
@@ -279,6 +286,59 @@
                 </div>
             </div>
         </section>
+    </div>
+
+    <!-- Field Extractor Modal -->
+    <div class="modal hidden" id="fieldExtractorModal">
+        <div class="modal-overlay" onclick="closeFieldExtractor()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>提取字段数据</h2>
+                <button class="btn-icon" onclick="closeFieldExtractor()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <line x1="18" y1="6" x2="6" y2="18"/>
+                        <line x1="6" y1="6" x2="18" y2="18"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>选择要提取的字段</label>
+                    <select id="extractFieldSelect" class="software-select" onchange="updateExtractPreview()">
+                        <option value="">请选择字段...</option>
+                    </select>
+                </div>
+
+                <div class="extract-stats" id="extractStats">
+                    <div class="stat-item">
+                        <span class="stat-label">原始记录数</span>
+                        <span class="stat-value" id="totalRecords">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">去重后记录数</span>
+                        <span class="stat-value" id="uniqueRecords">0</span>
+                    </div>
+                </div>
+
+                <div class="preview-section">
+                    <h4>数据预览 (前10条)</h4>
+                    <div class="preview-container" id="extractPreview">
+                        <p class="preview-hint">请选择字段查看数据预览</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-secondary" onclick="closeFieldExtractor()">取消</button>
+                <button class="btn btn-primary" id="extractExportBtn" onclick="extractAndExport()" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="7 10 12 15 17 10"/>
+                        <line x1="12" y1="15" x2="12" y2="3"/>
+                    </svg>
+                    导出Excel
+                </button>
+            </div>
+        </div>
     </div>
 
     <script src="script.js"></script>

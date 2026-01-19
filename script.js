@@ -6,7 +6,8 @@ const state = {
     sourceHeadersWithSample: [], // Store headers with sample data
     targetTemplate: [],
     mappings: {}, // Key: targetField, Value: sourceField
-    convertedData: null
+    convertedData: null,
+    extractedData: null // For field extraction feature
 };
 
 // Software templates configuration
@@ -780,6 +781,7 @@ function resetAll() {
     state.targetTemplate = [];
     state.mappings = {};
     state.convertedData = null;
+    state.extractedData = null;
 
     // Reset UI
     document.getElementById('sourceSoftware').value = '';
@@ -797,3 +799,164 @@ function resetAll() {
     // Scroll to top
     window.scrollTo({ top: 0, behavior: 'smooth' });
 }
+
+// ============ Field Extractor Functions ============
+
+function openFieldExtractor() {
+    if (!state.sourceData || state.sourceData.length === 0) {
+        alert('请先上传源数据文件');
+        return;
+    }
+
+    // Populate field select
+    const select = document.getElementById('extractFieldSelect');
+    select.innerHTML = '<option value="">请选择字段...</option>';
+
+    state.sourceHeaders.forEach(header => {
+        const option = document.createElement('option');
+        option.value = header;
+        option.textContent = header;
+        select.appendChild(option);
+    });
+
+    // Reset preview
+    document.getElementById('extractStats').classList.add('hidden');
+    document.getElementById('extractPreview').innerHTML = '<p class="preview-hint">请选择字段查看数据预览</p>';
+    document.getElementById('extractExportBtn').disabled = true;
+
+    // Show modal
+    document.getElementById('fieldExtractorModal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeFieldExtractor() {
+    document.getElementById('fieldExtractorModal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+function updateExtractPreview() {
+    const fieldName = document.getElementById('extractFieldSelect').value;
+
+    if (!fieldName) {
+        document.getElementById('extractStats').classList.add('hidden');
+        document.getElementById('extractPreview').innerHTML = '<p class="preview-hint">请选择字段查看数据预览</p>';
+        document.getElementById('extractExportBtn').disabled = true;
+        return;
+    }
+
+    // Find field index
+    const fieldIndex = state.sourceHeaders.indexOf(fieldName);
+    if (fieldIndex === -1) return;
+
+    // Extract all values from the field
+    const allValues = state.sourceData
+        .map(row => row[fieldIndex])
+        .filter(val => val !== undefined && val !== null && val !== '')
+        .map(val => String(val).trim());
+
+    // Remove duplicates
+    const uniqueValues = [...new Set(allValues)];
+
+    // Update stats
+    document.getElementById('totalRecords').textContent = allValues.length;
+    document.getElementById('uniqueRecords').textContent = uniqueValues.length;
+    document.getElementById('extractStats').classList.remove('hidden');
+
+    // Create preview table (first 10 unique values)
+    const previewData = uniqueValues.slice(0, 10);
+
+    let previewHTML = `
+        <table class="preview-table">
+            <thead>
+                <tr>
+                    <th>序号</th>
+                    <th>${fieldName}</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    previewData.forEach((value, index) => {
+        previewHTML += `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${value}</td>
+            </tr>
+        `;
+    });
+
+    previewHTML += `
+            </tbody>
+        </table>
+    `;
+
+    if (uniqueValues.length > 10) {
+        previewHTML += `<p style="text-align: center; padding: 12px; color: var(--text-muted); font-size: 13px;">还有 ${uniqueValues.length - 10} 条数据未显示...</p>`;
+    }
+
+    document.getElementById('extractPreview').innerHTML = previewHTML;
+    document.getElementById('extractExportBtn').disabled = false;
+
+    // Store extracted data
+    state.extractedData = {
+        fieldName: fieldName,
+        values: uniqueValues
+    };
+}
+
+function extractAndExport() {
+    if (!state.extractedData) {
+        alert('请先选择要提取的字段');
+        return;
+    }
+
+    const { fieldName, values } = state.extractedData;
+
+    // Create worksheet data
+    const wsData = [
+        [fieldName, '出现次数'],
+        ...values.map(val => {
+            // Count occurrences in original data
+            const fieldIndex = state.sourceHeaders.indexOf(fieldName);
+            const count = state.sourceData.filter(row => {
+                const cellValue = row[fieldIndex];
+                return cellValue !== undefined && cellValue !== null && String(cellValue).trim() === val;
+            }).length;
+
+            return [val, count];
+        })
+    ];
+
+    // Create worksheet
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Set column widths
+    ws['!cols'] = [
+        { wch: 30 }, // Field name column
+        { wch: 15 }  // Count column
+    ];
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '提取数据');
+
+    // Generate filename with timestamp
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '').replace('T', '_');
+    const filename = `提取_${fieldName}_${timestamp}.xlsx`;
+
+    // Download
+    XLSX.writeFile(wb, filename);
+
+    // Close modal
+    closeFieldExtractor();
+
+    // Show success message
+    alert(`成功导出 ${values.length} 条唯一的${fieldName}数据！`);
+}
+
+// Close modal on escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeFieldExtractor();
+    }
+});
