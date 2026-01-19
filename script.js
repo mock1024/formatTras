@@ -70,20 +70,29 @@ const softwareTemplates = {
 
 // Common field aliases for auto-mapping
 const fieldAliases = {
-    '商品编号': ['商品编号', '商品ID', '商品代码', '商品编码', '自编码', '编号', 'ID', 'code'],
-    '商品名称': ['商品名称', '名称', '品名', '商品', 'name'],
-    '商品条码': ['商品条码', '条形码', '条码', 'barcode'],
-    '规格': ['规格', '规格型号', 'model'],
-    '单位': ['单位', '计量单位', 'unit'],
-    '进货价': ['进货价', '进价', '成本价', '采购价', '入库价'],
-    '销售价': ['销售价', '现价', '售价', '单价', '原价', '零售价', 'price'],
-    '会员价': ['会员价', 'VIP价'],
-    '批发价': ['批发价'],
-    '库存': ['库存', '库存数量', '库存量', '库存数', 'stock'],
-    '分类': ['分类', '分类编码', '分类号', '类别', 'category'],
-    '分类名称': ['分类名称', '分类名'],
-    '品牌': ['品牌', 'brand'],
-    '供应商': ['供应商', '供货商', 'supplier']
+    '商品编号': ['商品编号', '商品ID', '商品代码', '商品编码', '自编码', '编号', 'ID', 'code', 'goods_id', 'product_id', 'product_code'],
+    '商品名称': ['商品名称', '名称', '品名', '商品', 'name', 'goods_name', 'product_name', 'title'],
+    '商品条码': [
+        '商品条码', '条形码', '条码', 'barcode', 'bar_code',
+        'barcode1', 'barcode2', 'barcode_1', 'barcode_2',
+        '条码1', '条码2', '条码_1', '条码_2',
+        '商品条形码', '条码号', '条形码号', '码',
+        'barcode_no', 'barcode_num', 'bar_code_no',
+        '条形码编号', '条码编号', '商品码',
+        '国际条码', 'ean', 'upc', 'ean13', 'ean_13', 'upc_a',
+        '商品条形码1', '商品条形码2', '商品条码1', '商品条码2'
+    ],
+    '规格': ['规格', '规格型号', 'model', 'spec', 'specification', 'specs', '规格说明'],
+    '单位': ['单位', '计量单位', 'unit', 'uom', 'unit_name'],
+    '进货价': ['进货价', '进价', '成本价', '采购价', '入库价', 'buy_price', 'cost_price', 'purchase_price', 'in_price'],
+    '销售价': ['销售价', '现价', '售价', '单价', '原价', '零售价', 'price', 'sell_price', 'sale_price', 'retail_price', 'unit_price'],
+    '会员价': ['会员价', 'VIP价', 'vip_price', 'member_price', '会员价1', '会员价2'],
+    '批发价': ['批发价', 'wholesale_price', '批发价1', '批发价2'],
+    '库存': ['库存', '库存数量', '库存量', '库存数', 'stock', 'quantity', 'qty', 'inventory', 'stock_num', 'amount'],
+    '分类': ['分类', '分类编码', '分类号', '类别', 'category', 'category_code', 'category_id', 'class', 'type'],
+    '分类名称': ['分类名称', '分类名', 'category_name', 'category'],
+    '品牌': ['品牌', 'brand', 'brand_name', 'brand_id'],
+    '供应商': ['供应商', '供货商', 'supplier', 'supplier_name', 'supplier_id', 'vendor']
 };
 
 // Initialize event listeners
@@ -278,6 +287,30 @@ function updateMapping(targetField, sourceField) {
 function autoMapFields() {
     const selects = document.querySelectorAll('.mapping-select');
 
+    // Build content-based patterns for barcode detection
+    const barcodeContentScores = {};
+    if (state.sourceData && state.sourceData.length > 0) {
+        state.sourceHeaders.forEach((header, index) => {
+            // Check first 10 rows for barcode-like patterns
+            let barcodePatternCount = 0;
+            let checkRows = Math.min(10, state.sourceData.length);
+
+            for (let i = 0; i < checkRows; i++) {
+                const value = state.sourceData[i][index];
+                if (value && typeof value === 'string') {
+                    const trimmed = value.trim();
+                    // Check if it looks like a barcode (8, 12, 13 digits)
+                    if (/^\d{8}$|^\d{12}$|^\d{13}$/.test(trimmed)) {
+                        barcodePatternCount++;
+                    }
+                }
+            }
+
+            // Calculate score based on how many rows have barcode patterns
+            barcodeContentScores[header] = (barcodePatternCount / checkRows) * 50;
+        });
+    }
+
     selects.forEach(select => {
         const targetField = select.dataset.target;
         let bestMatch = null;
@@ -286,6 +319,7 @@ function autoMapFields() {
         // Check for direct match or alias match
         state.sourceHeaders.forEach(sourceHeader => {
             let score = 0;
+            const sourceLower = sourceHeader.toLowerCase();
 
             // Direct match
             if (sourceHeader === targetField) {
@@ -294,15 +328,32 @@ function autoMapFields() {
             // Check aliases
             else if (fieldAliases[targetField]) {
                 const aliases = fieldAliases[targetField];
-                const sourceLower = sourceHeader.toLowerCase();
+
+                // Exact alias match
                 if (aliases.some(alias => alias.toLowerCase() === sourceLower)) {
                     score = 80;
                 }
-                // Partial match
-                else if (aliases.some(alias => sourceLower.includes(alias.toLowerCase()) ||
-                                              alias.toLowerCase().includes(sourceLower))) {
+                // Partial match - check if source contains alias or vice versa
+                else if (aliases.some(alias => {
+                    const aliasLower = alias.toLowerCase();
+                    return sourceLower.includes(aliasLower) || aliasLower.includes(sourceLower);
+                })) {
                     score = 60;
                 }
+            }
+
+            // Special handling for barcode fields - boost score if content looks like barcodes
+            if (targetField === '商品条码' || targetField === '条形码' || targetField === '条码') {
+                if (barcodeContentScores[sourceHeader]) {
+                    score += barcodeContentScores[sourceHeader];
+                }
+            }
+
+            // Prefer exact field name match for barcodes
+            if ((targetField === '商品条码' || targetField === '条形码' || targetField === '条码') &&
+                (sourceHeader === '商品条码' || sourceHeader === '条形码' || sourceHeader === '条码' ||
+                 sourceLower === 'barcode' || sourceLower === 'bar_code')) {
+                score = Math.max(score, 95);
             }
 
             if (score > bestScore) {
