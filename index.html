@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>表格数据转换工具</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- SheetJS for Excel processing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <svg class="logo-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"/>
+                </svg>
+                <h1>表格数据转换工具</h1>
+            </div>
+            <p class="subtitle">支持不同软件间商品资料的快速转换</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Source Section -->
+            <section class="section source-section">
+                <div class="section-header">
+                    <div class="section-icon source-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2>来源软件</h2>
+                        <p>选择并上传源数据文件</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="form-group">
+                        <label>选择源软件</label>
+                        <select id="sourceSoftware" class="software-select">
+                            <option value="">请选择...</option>
+                            <option value="kemai">科脉云帆</option>
+                            <option value="jushang">聚商荟</option>
+                            <option value="sixun">思迅天店</option>
+                            <option value="yinbao">银豹</option>
+                            <option value="fuzhanggui">富掌柜</option>
+                            <option value="higuanjia">惠管家</option>
+                            <option value="mingxian">明献零售</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>上传数据文件</label>
+                        <div class="upload-area" id="sourceUpload">
+                            <input type="file" id="sourceFile" accept=".xlsx,.xls,.csv" hidden>
+                            <svg class="upload-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                                <polyline points="17 8 12 3 7 8"/>
+                                <line x1="12" y1="3" x2="12" y2="15"/>
+                            </svg>
+                            <p class="upload-text">点击或拖拽文件到此处</p>
+                            <p class="upload-hint">支持 .xlsx, .xls, .csv 格式</p>
+                        </div>
+                    </div>
+
+                    <div class="file-info hidden" id="sourceFileInfo">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                            <polyline points="14 2 14 8 20 8"/>
+                            <line x1="16" y1="13" x2="8" y2="13"/>
+                            <line x1="16" y1="17" x2="8" y2="17"/>
+                            <polyline points="10 9 9 9 8 9"/>
+                        </svg>
+                        <span class="file-name"></span>
+                        <button class="btn-icon btn-remove" onclick="removeSourceFile()">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <line x1="18" y1="6" x2="6" y2="18"/>
+                                <line x1="6" y1="6" x2="18" y2="18"/>
+                            </svg>
+                        </button>
+                    </div>
+
+                    <div class="data-preview hidden" id="sourcePreview">
+                        <div class="preview-header">
+                            <h3>数据预览</h3>
+                            <span class="record-count"></span>
+                        </div>
+                        <div class="table-wrapper">
+                            <table id="sourceTable">
+                                <thead></thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Arrow -->
+            <div class="arrow-container">
+                <div class="arrow-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                        <polyline points="12 5 19 12 12 19"/>
+                    </svg>
+                </div>
+            </div>
+
+            <!-- Target Section -->
+            <section class="section target-section">
+                <div class="section-header">
+                    <div class="section-icon target-icon">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                    </div>
+                    <div>
+                        <h2>目标软件</h2>
+                        <p>选择目标软件模板</p>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="form-group">
+                        <label>选择目标软件</label>
+                        <select id="targetSoftware" class="software-select">
+                            <option value="">请选择...</option>
+                            <option value="kemai">科脉云帆</option>
+                            <option value="jushang">聚商荟</option>
+                            <option value="sixun">思迅天店</option>
+                            <option value="yinbao">银豹</option>
+                            <option value="fuzhanggui">富掌柜</option>
+                            <option value="higuanjia">惠管家</option>
+                            <option value="mingxian">明献零售</option>
+                        </select>
+                    </div>
+
+                    <div class="template-info hidden" id="templateInfo">
+                        <div class="template-header">
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                <polyline points="14 2 14 8 20 8"/>
+                            </svg>
+                            <span>目标模板字段</span>
+                        </div>
+                        <div class="template-fields" id="templateFields"></div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Mapping Section -->
+        <section class="mapping-section hidden" id="mappingSection">
+            <div class="section-header full-width">
+                <div class="section-icon mapping-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3"/>
+                        <line x1="12" y1="8" x2="12" y2="16"/>
+                        <line x1="8" y1="12" x2="16" y2="12"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2>字段映射配置</h2>
+                    <p>配置源字段与目标字段的对应关系</p>
+                </div>
+            </div>
+
+            <div class="card mapping-card">
+                <div class="mapping-actions">
+                    <button class="btn btn-secondary" onclick="autoMapFields()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <polyline points="23 4 23 10 17 10"/>
+                            <polyline points="1 20 1 14 7 14"/>
+                            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                        </svg>
+                        自动匹配
+                    </button>
+                    <button class="btn btn-secondary" onclick="resetMappings()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                        </svg>
+                        重置映射
+                    </button>
+                </div>
+                <div class="mapping-list" id="mappingList"></div>
+            </div>
+        </section>
+
+        <!-- Convert Button -->
+        <div class="action-section">
+            <button class="btn btn-primary btn-large" id="convertBtn" onclick="convertData()" disabled>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                    <line x1="12" y1="22.08" x2="12" y2="12"/>
+                </svg>
+                开始转换
+            </button>
+        </div>
+
+        <!-- Result Section -->
+        <section class="result-section hidden" id="resultSection">
+            <div class="section-header full-width">
+                <div class="section-icon success-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                        <polyline points="22 4 12 14.01 9 11.01"/>
+                    </svg>
+                </div>
+                <div>
+                    <h2>转换完成</h2>
+                    <p>数据已成功转换，可预览或下载</p>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="result-stats">
+                    <div class="stat-item">
+                        <span class="stat-label">转换记录数</span>
+                        <span class="stat-value" id="convertedCount">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">目标字段数</span>
+                        <span class="stat-value" id="targetFieldCount">0</span>
+                    </div>
+                </div>
+
+                <div class="result-preview">
+                    <div class="preview-header">
+                        <h3>转换结果预览</h3>
+                        <button class="btn btn-secondary btn-sm" onclick="toggleFullPreview()">
+                            <span id="previewToggleText">查看更多</span>
+                        </button>
+                    </div>
+                    <div class="table-wrapper">
+                        <table id="resultTable">
+                            <thead></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="result-actions">
+                    <button class="btn btn-primary" onclick="downloadExcel()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        下载Excel文件
+                    </button>
+                    <button class="btn btn-secondary" onclick="downloadCSV()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                            <polyline points="7 10 12 15 17 10"/>
+                            <line x1="12" y1="15" x2="12" y2="3"/>
+                        </svg>
+                        下载CSV文件
+                    </button>
+                    <button class="btn btn-outline" onclick="resetAll()">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                            <path d="M3 3v5h5"/>
+                        </svg>
+                        重新开始
+                    </button>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
